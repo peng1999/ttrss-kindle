@@ -1,0 +1,126 @@
+#!/usr/bin/env python3
+# vim:ft=python
+from calibre.web.feeds.news import BasicNewsRecipe
+import json, urllib2, urllib, re
+
+class TClient():
+    def __init__(self, url, username, password, logger, key, test = False):
+        self.url = "%s/api/" % url
+        self.username = username
+        self.password = password
+        self.log = logger
+        self.sid = None
+        self.test = test
+        self.key = key
+        self.login()
+    def _request(self, op, data = None):
+        if not op is 'login':
+            data['sid'] = self.sid
+        if data is None:
+            data = {}
+        data['op'] = op
+        data_string = json.dumps(data)
+        json_string = None
+        try:
+            req = urllib2.Request(self.url, data_string, {'User-Agent': 'Mozilla/4.0'})
+            res = urllib2.urlopen(req)
+            json_string = res.read()
+        except urllib2.HTTPError,e:
+            print(e.read())
+            raise e
+        object = json.loads(json_string)
+        if 'error' in object:
+            raise Exception("Tiny Tiny RSS Error: URL-%s, DATA-%s, RESP-%s" %(self.url, data_string, json_string))
+        return object['content']
+    def login(self):
+        data = self._request('login', {
+            "user": self.username,
+            "password": self.password
+        })
+        if not 'session_id' in data:
+            self.log.warn("Tiny Tiny RSS Error: failed to load session id.")
+            raise Exception("Tiny Tiny RSS Error: failed to load session id.")
+        self.sid = data['session_id']
+        self.log.info("Get session id %s" % self.sid)
+    def get_articles(self, urls, offset = 0, limit = 10):
+        id_list = []
+        data = {}
+        data['feed_id'] = -4 # all unread
+        data['limit'] = limit
+        data['offset'] = offset
+        data['show_content'] = True
+        data['view_mode'] = 'unread'
+        data['sanitize'] = False
+        feeds = self._request('getHeadlines', data)
+        for i in feeds:
+            if not i['feed_title'] in urls:
+                urls[i['feed_title']] = []
+            urls[i['feed_title']].append({
+                'title': i['title'],
+                'url': i['link'],
+                'date': i['updated'],
+                'content': self.append_url(i['content'], i['link']),
+                'description': i['excerpt'] if 'excerpt' in i else ''
+            })
+            id_list.append("%s" % i['id'])
+        # 标记为已读
+        read_data = {
+            "article_ids": ",".join(id_list),
+            "mode": 0,
+            "field": 2
+        }
+        if not self.test:
+            self._request('updateArticle', read_data)
+        return urls
+    def get_all_articles(self):
+        urls = {}
+        countLast = 0
+        while True:
+            counters = self._request('getCounters', {'mode': 'f'})
+            count = 0
+            for i in counters:
+                if i['id'] is -4:
+                        count = i['counter']
+                        break
+            if count < 1:
+                break
+            if countLast is count:
+                raise Exception("There's some error when marking read articles.")
+            countLast = count
+            urls = self.get_articles(urls)
+            if self.test:
+                break
+        return urls
+    def append_url(self, raw_html, url):
+        u = urllib.quote(url)
+        share_url = "http://httpbin.org/get?key=%s&url=%s" % (self.key, u) # 生成分享链接，后端请自己随便搭建。
+        qr_url = "https://chart.googleapis.com/chart?cht=qr&chs=300x300&choe=UTF-8&chld=H|4&chl=%s" % u
+        append_html = u'<p><hr /><img src="%s" /><hr />❤ 悦读 | <a href="%s">打开分享菜单</a> | <a href="%s">浏览原文</a></p>' % (qr_url, share_url, url)
+        raw_html = re.sub(r'(\</body\>|$)', r'%s\1' % append_html, raw_html, count=1)
+        return raw_html
+
+class YueDu(BasicNewsRecipe):
+    title = u'❤ 悦读'
+    __author__ = 'XinYueDu'
+    description = u'用悦读以阅读。'
+    timefmt = '%Y年%m月%d日 %A'
+    needs_subscription = True
+    oldest_article = 256
+    max_articles_per_feed = 256
+    publication_type = 'newspaper'
+    compress_news_images = True
+    use_embedded_content = True
+    cover_url = ''
+    masthead_url = ''
+    def parse_index(self):
+        (ttrss_url, ttrss_username, ttrss_key) = self.username.split(';')
+        self.log.info("Getting URL-%s, username-%s" % (ttrss_url, ttrss_username))
+        ttrss_password = self.password
+        self.log.info("Getting Password-%s******" % ttrss_password[:2])
+        ttrss = TClient(ttrss_url, ttrss_username, ttrss_password, self.log, ttrss_key, self.test)
+        urls = ttrss.get_all_articles()
+        index = []
+        for (key, value) in urls.iteritems():
+            self.log.info("Key:%s - length: %d" % (key, len(value)))
+            index.append((key, value))
+        return index
