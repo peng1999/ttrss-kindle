@@ -2,10 +2,15 @@
 # vim:ft=python
 
 from calibre.web.feeds.news import BasicNewsRecipe
-import json, urllib.request, urllib.error, urllib.parse, re
+import json
+import urllib.request
+import urllib.error
+import urllib.parse
+import re
+
 
 class TClient():
-    def __init__(self, url, username, password, logger, key, test = False):
+    def __init__(self, url, username, password, logger, key, test=False):
         self.url = "%s/api/" % url
         self.username = username
         self.password = password
@@ -14,7 +19,8 @@ class TClient():
         self.test = test
         self.key = key
         self.login()
-    def _request(self, op, data = None):
+
+    def _request(self, op, data=None):
         if not op is 'login':
             data['sid'] = self.sid
         if data is None:
@@ -23,7 +29,8 @@ class TClient():
         data_string = json.dumps(data)
         json_string = None
         try:
-            req = urllib.request.Request(self.url, data_string.encode('utf-8'), {'User-Agent': 'Mozilla/4.0'})
+            req = urllib.request.Request(self.url, data_string.encode(
+                'utf-8'), {'User-Agent': 'Mozilla/4.0'})
             res = urllib.request.urlopen(req)
             json_string = res.read()
         except urllib.error.HTTPError as e:
@@ -31,8 +38,10 @@ class TClient():
             raise e
         object = json.loads(json_string)
         if 'error' in object:
-            raise Exception("Tiny Tiny RSS Error: URL-%s, DATA-%s, RESP-%s" %(self.url, data_string, json_string))
+            raise Exception("Tiny Tiny RSS Error: URL-%s, DATA-%s, RESP-%s" %
+                            (self.url, data_string, json_string))
         return object['content']
+
     def login(self):
         data = self._request('login', {
             "user": self.username,
@@ -43,10 +52,11 @@ class TClient():
             raise Exception("Tiny Tiny RSS Error: failed to load session id.")
         self.sid = data['session_id']
         self.log.info("Get session id %s" % self.sid)
-    def get_articles(self, urls, offset = 0, limit = 10):
+
+    def get_articles(self, urls, offset=0, limit=10):
         id_list = []
         data = {}
-        data['feed_id'] = -4 # all unread
+        data['feed_id'] = -4  # all unread
         data['limit'] = limit
         data['offset'] = offset
         data['show_content'] = True
@@ -73,6 +83,7 @@ class TClient():
         if not self.test:
             self._request('updateArticle', read_data)
         return urls
+
     def get_all_articles(self):
         urls = {}
         countLast = 0
@@ -81,24 +92,30 @@ class TClient():
             count = 0
             for i in counters:
                 if i['id'] is -4:
-                        count = i['counter']
-                        break
+                    count = i['counter']
+                    break
             if count < 1:
                 break
             if countLast is count:
-                raise Exception("There's some error when marking read articles.")
+                raise Exception(
+                    "There's some error when marking read articles.")
             countLast = count
             urls = self.get_articles(urls)
             if self.test:
                 break
         return urls
+
     def append_url(self, raw_html, url):
         u = urllib.parse.quote(url)
-        share_url = "http://httpbin.org/get?key=%s&url=%s" % (self.key, u) # 生成分享链接，后端请自己随便搭建。
+        # 生成分享链接，后端请自己随便搭建。
+        share_url = "http://httpbin.org/get?key=%s&url=%s" % (self.key, u)
         qr_url = "https://chart.googleapis.com/chart?cht=qr&chs=300x300&choe=UTF-8&chld=H|4&chl=%s" % u
-        append_html = '<p><hr /><img src="%s" /><hr />❤ 悦读 | <a href="%s">打开分享菜单</a> | <a href="%s">浏览原文</a></p>' % (qr_url, share_url, url)
-        raw_html = re.sub(r'(\</body\>|$)', r'%s\1' % append_html, raw_html, count=1)
+        append_html = '<p><hr /><img src="%s" /><hr />❤ 悦读 | <a href="%s">打开分享菜单</a> | <a href="%s">浏览原文</a></p>' % (
+            qr_url, share_url, url)
+        raw_html = re.sub(r'(\</body\>|$)', r'%s\1' %
+                          append_html, raw_html, count=1)
         return raw_html
+
 
 class YueDu(BasicNewsRecipe):
     title = '❤ 悦读'
@@ -113,12 +130,15 @@ class YueDu(BasicNewsRecipe):
     use_embedded_content = True
     cover_url = ''
     masthead_url = ''
+
     def parse_index(self):
         (ttrss_url, ttrss_username, ttrss_key) = self.username.split(';')
-        self.log.info("Getting URL-%s, username-%s" % (ttrss_url, ttrss_username))
+        self.log.info("Getting URL-%s, username-%s" %
+                      (ttrss_url, ttrss_username))
         ttrss_password = self.password
         self.log.info("Getting Password-%s******" % ttrss_password[:2])
-        ttrss = TClient(ttrss_url, ttrss_username, ttrss_password, self.log, ttrss_key, self.test)
+        ttrss = TClient(ttrss_url, ttrss_username,
+                        ttrss_password, self.log, ttrss_key, self.test)
         urls = ttrss.get_all_articles()
         index = []
         for (key, value) in urls.items():
