@@ -36,11 +36,11 @@ class TClient():
         except urllib.error.HTTPError as e:
             print(e.read())
             raise e
-        object = json.loads(json_string)
-        if 'error' in object:
+        obj = json.loads(json_string)
+        if 'error' in obj:
             raise Exception("Tiny Tiny RSS Error: URL-%s, DATA-%s, RESP-%s" %
                             (self.url, data_string, json_string))
-        return object['content']
+        return obj['content']
 
     def login(self):
         data = self._request('login', {
@@ -53,7 +53,7 @@ class TClient():
         self.sid = data['session_id']
         self.log.info("Get session id %s" % self.sid)
 
-    def get_articles(self, urls, offset=0, limit=10):
+    def get_articles(self, urls, offset=0, limit=10, mark_read=False):
         id_list = []
         data = {}
         data['feed_id'] = -4  # all unread
@@ -74,13 +74,13 @@ class TClient():
                 'description': i['excerpt'] if 'excerpt' in i else ''
             })
             id_list.append("%s" % i['id'])
-        # 标记为已读
-        read_data = {
-            "article_ids": ",".join(id_list),
-            "mode": 0,
-            "field": 2
-        }
-        if not self.test:
+        if mark_read and not self.test:
+            # 标记为已读
+            read_data = {
+                "article_ids": ",".join(id_list),
+                "mode": 0,
+                "field": 2
+            }
             self._request('updateArticle', read_data)
         return urls
 
