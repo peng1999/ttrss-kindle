@@ -1,16 +1,18 @@
 #!/usr/bin/env python3
 # vim:ft=python
 
-from calibre.web.feeds.news import BasicNewsRecipe
+from typing import Dict
 import json
 import urllib.request
 import urllib.error
 import urllib.parse
 import re
 
+from calibre.web.feeds.news import BasicNewsRecipe
+
 
 class TClient():
-    def __init__(self, url, username, password, logger, key, test=False):
+    def __init__(self, url, username, password, logger, key, test=True):
         self.url = "%s/api/" % url
         self.username = username
         self.password = password
@@ -21,7 +23,7 @@ class TClient():
         self.login()
 
     def _request(self, op, data=None):
-        if not op is 'login':
+        if op != 'login':
             data['sid'] = self.sid
         if data is None:
             data = {}
@@ -53,28 +55,41 @@ class TClient():
         self.sid = data['session_id']
         self.log.info("Get session id %s" % self.sid)
 
-    def get_articles(self, urls, offset=0, limit=10, mark_read=False):
+    def trans_article(self, feed):
+        return {
+            'title': feed['title'],
+            'url': feed['link'],
+            'date': feed['updated'],
+            'content': self.append_url(feed['content'], feed['link']),
+            'description': feed['excerpt'] if 'excerpt' in feed else ''
+        }
+
+    def get_articles(self, urls: Dict[str, list], offset=0, limit=40):
         id_list = []
-        data = {}
-        data['feed_id'] = -4  # all unread
-        data['limit'] = limit
-        data['offset'] = offset
-        data['show_content'] = True
-        data['view_mode'] = 'unread'
-        data['sanitize'] = False
+        data = {
+            'feed_id': -4,  # all unread
+            'limit': limit,
+            'offset': offset,
+            'show_content': True,
+            'view_mode': 'unread',
+            'sanitize': False,
+        }
         feeds = self._request('getHeadlines', data)
-        for i in feeds:
-            if not i['feed_title'] in urls:
-                urls[i['feed_title']] = []
-            urls[i['feed_title']].append({
-                'title': i['title'],
-                'url': i['link'],
-                'date': i['updated'],
-                'content': self.append_url(i['content'], i['link']),
-                'description': i['excerpt'] if 'excerpt' in i else ''
-            })
-            id_list.append("%s" % i['id'])
-        if mark_read and not self.test:
+        for feed in feeds:
+            if not feed['feed_title'] in urls:
+                urls[feed['feed_title']] = []
+            urls[feed['feed_title']].append(self.trans_article(feed))
+            id_list.append("%s" % feed['id'])
+
+        # stared
+        data['feed_id'] = -1
+        data['view_mode'] = 'marked'
+        feeds = self._request('getHeadlines', data)
+        urls['星标文章'] = []
+        for feed in feeds:
+            urls['星标文章'].append(self.trans_article(feed))
+
+        if not self.test:
             # 标记为已读
             read_data = {
                 "article_ids": ",".join(id_list),
@@ -88,10 +103,10 @@ class TClient():
         urls = {}
         countLast = 0
         while True:
-            counters = self._request('getCounters', {'mode': 'f'})
+            counters = self._request('getCounters', {'output_mode': 'f'})
             count = 0
             for i in counters:
-                if i['id'] is -4:
+                if i['id'] == -4:
                     count = i['counter']
                     break
             if count < 1:
@@ -118,9 +133,9 @@ class TClient():
 
 
 class YueDu(BasicNewsRecipe):
-    title = '❤ 悦读'
-    __author__ = 'XinYueDu'
-    description = '用悦读以阅读。'
+    title = 'Tiny Tiny RSS Daily'
+    __author__ = 'Peng Guanwen'
+    description = 'Daily RSS summary'
     timefmt = '%Y年%m月%d日 %A'
     needs_subscription = True
     oldest_article = 256
@@ -138,7 +153,7 @@ class YueDu(BasicNewsRecipe):
         ttrss_password = self.password
         self.log.info("Getting Password-%s******" % ttrss_password[:2])
         ttrss = TClient(ttrss_url, ttrss_username,
-                        ttrss_password, self.log, ttrss_key, self.test)
+                        ttrss_password, self.log, ttrss_key)
         urls = ttrss.get_all_articles()
         index = []
         for (key, value) in urls.items():

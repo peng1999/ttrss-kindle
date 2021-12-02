@@ -12,6 +12,11 @@ then
     exit 1
 fi
 
+if test -d $(dirname $OP_MOBI)
+then
+    mkdir $(dirname $OP_MOBI)
+fi
+
 # ❤悦读 设置
 # 用于生成分享链接，参考 recipe 文件的 share_url 。
 XYDID=WTF_IS_OK
