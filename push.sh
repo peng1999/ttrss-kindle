@@ -6,13 +6,13 @@ RECIPE=YueDu.recipe
 PROFILE=kindle_pw
 # Tiny Tiny RSS 设置
 TTURL=https://pgw-ray.t123yh.xyz:3
-if test -n ${TTUSER-} || test -n ${TTPWD-}
+if test -z ${TTUSER-} || test -z ${TTPWD-}
 then
     echo "TTUSER and TTPWD must be set! exitting..."
     exit 1
 fi
 
-if test -d $(dirname $OP_MOBI)
+if test ! -d $(dirname $OP_MOBI)
 then
     mkdir $(dirname $OP_MOBI)
 fi
