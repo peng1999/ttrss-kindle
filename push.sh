@@ -1,7 +1,7 @@
 #!/bin/bash
 # calibre 设置
 WORK_DIR=$PWD
-OP_MOBI=$WORK_DIR/mobi/$(date "+%Y-%m-%d-%s").mobi
+OP_MOBI=$WORK_DIR/mobi/ttrss-$(date "+%Y-%m-%d-%s").mobi
 RECIPE=YueDu.recipe
 PROFILE=kindle_pw
 # Tiny Tiny RSS 设置
