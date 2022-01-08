@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+  <head>
+    <meta charset="UTF-8" />
+    <title>axum.rs</title>
+  </head>
+  <body>
+    <ul>
+      {% for file in files %}
+      <li>
+        <a href="{{base_url}}/{{file}}">{{file}}</a>
+      </li>
+      {% endfor %}
+    </ul>
+  </body>
+</html>
