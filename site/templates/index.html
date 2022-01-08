@@ -2,15 +2,23 @@
 <html lang="zh-Hans">
   <head>
     <meta charset="UTF-8" />
-    <title>axum.rs</title>
+    <link rel="stylesheet" href="https://unpkg.com/@picocss/pico@latest/css/pico.min.css">
+    <title>eBooks</title>
   </head>
   <body>
-    <ul>
-      {% for file in files %}
-      <li>
-        <a href="{{base_url}}/{{file}}">{{file}}</a>
-      </li>
-      {% endfor %}
-    </ul>
+    <main class="container">
+      {% if can_generate %}
+      <form action="/generate" method="post">
+        <input type="submit" class="outline" value="Generate new ttrss issue">
+      </form>
+      {% endif %}
+      <ul>
+        {% for file in files %}
+        <li>
+          <a href="{{base_url}}/{{file}}">{{file}}</a>
+        </li>
+        {% endfor %}
+      </ul>
+    </main>
   </body>
 </html>

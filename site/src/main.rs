@@ -33,6 +33,7 @@ impl Default for Config {
 struct IndexTemplate {
     files: Vec<String>,
     base_url: String,
+    can_generate: bool,
 }
 
 async fn index(Extension(config): Extension<Config>) -> Result<HtmlTemplate<IndexTemplate>, Error> {
@@ -48,6 +49,7 @@ async fn index(Extension(config): Extension<Config>) -> Result<HtmlTemplate<Inde
     return Ok(HtmlTemplate(IndexTemplate {
         files,
         base_url: config.download_base_url,
+        can_generate: false,
     }));
 }
 
